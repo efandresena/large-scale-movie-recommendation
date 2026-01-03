@@ -14,18 +14,18 @@ Genre-aware: Incorporates movie genres for better recommendations
 Fast & Efficient: Optimized with Numba for high performance
 
 Quick Start
-1. Installation
-# Clone the repository
+# 1. Installation
+## Clone the repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/movie-recommender.git
+git clone https://github.com/efandresena/large-scale-movie-recommendation.git
 cd movie-recommender
 ```
 
-# Install dependencies
+## Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
-# Run the application
+## Run the application
 ```bash
 python cli.py
 ```
