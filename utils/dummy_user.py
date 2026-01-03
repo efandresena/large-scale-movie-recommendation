@@ -108,7 +108,7 @@ def predict(user: DummyUser, model_data: dict, train_dataset, num_recommendation
     best = sorted_idx[-(num_recommendations * 3):][::-1]  # Get more than needed for filtering
     
     # Filter movies with too few ratings
-    less_rating = check_if_less_rating(train_dataset, best, limit=100)
+    less_rating = check_if_less_rating(train_dataset, best, limit=100) # type: ignore
     new_bests = [idx for idx in best if idx not in less_rating][:num_recommendations]
     
     # Convert indices to movie IDs

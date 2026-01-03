@@ -34,8 +34,8 @@ def check_if_less_rating(train: CompactDatasetCSR, bests: List[int], limit: int 
     
     for idx in bests:
         m = idx
-        start = train.movie_indptr[m]
-        end = train.movie_indptr[m + 1]
+        start = train.movie_indptr[m] # type: ignore
+        end = train.movie_indptr[m + 1] # type: ignore
         if end - start <= limit:
             idx_to_remove.append(idx)
             count += 1

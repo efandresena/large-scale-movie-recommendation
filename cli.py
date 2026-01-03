@@ -8,9 +8,9 @@ import os
 import sys
 import zipfile
 
-import gdown
+import gdown # type: ignore
 import numpy as np
-import pandas as pd
+import pandas as pd # type: ignore
 
 # Import configuration
 import config
@@ -77,7 +77,7 @@ def download_movies_data():
         # Move files to data directory
         ml_dir = os.path.join(config.DATA_DIR, "ml-25m")
         if os.path.exists(ml_dir):
-            for file in ["movies.csv", "ratings.csv"]:
+            for file in ["movies.csv", "ratings.csv", "links.csv"]:
                 src = os.path.join(ml_dir, file)
                 dst = os.path.join(config.DATA_DIR, file)
                 if os.path.exists(src) and not os.path.exists(dst):
@@ -344,13 +344,13 @@ def train_from_scratch():
         k=config.DEFAULT_K,
         lamda=config.DEFAULT_LAMBDA,
         gamma=config.DEFAULT_GAMMA,
-        dataset=test,
+        dataset=test, # pyright: ignore[reportArgumentType]
     )
 
     print_success(f"Model saved to {config.MODEL_PATH}")
     print_info("You can now use this model for recommendations!")
 
-    input("\nPress Enter to return to main menu...")
+    input("\nPress Enter to return to main menu for inference...")
 
 
 def main_menu():
@@ -370,7 +370,7 @@ def main():
 
     # Check if gdown is installed
     try:
-        import gdown
+        import gdown # pyright: ignore[reportMissingImports]
     except ImportError:
         print_error("Required package 'gdown' not found.")
         print_info("Please install it with: pip install gdown")

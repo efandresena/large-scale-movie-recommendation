@@ -5,7 +5,7 @@ Training functions for ALS matrix factorization with genre features
 import random
 
 import numpy as np
-from numba import njit, prange
+from numba import njit, prange # pyright: ignore[reportMissingImports]
 
 from utils.data_structure import CompactDatasetCSR
 

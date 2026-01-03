@@ -2,7 +2,7 @@
 Display and formatting utilities
 """
 from typing import List
-import pandas as pd
+import pandas as pd # type: ignore
 
 
 def print_header():

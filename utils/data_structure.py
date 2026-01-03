@@ -56,7 +56,7 @@ class CompactDatasetCSR:
         movie_pos = self.movieId_to_idx.get(movieId)
 
         if user_pos is not None and movie_pos is not None:
-            self._temp_ratings.append((user_pos, movie_pos, rating_value))
+            self._temp_ratings.append((user_pos, movie_pos, rating_value)) # type: ignore
 
     def add_genres_features(self, filepath):
         """Build genre features in CSR format"""
@@ -99,38 +99,38 @@ class CompactDatasetCSR:
         if self._finalized:
             return
 
-        print(f"Finalizing dataset ({len(self._temp_ratings)} ratings)...")
+        print(f"Finalizing dataset ({len(self._temp_ratings)} ratings)...") # pyright: ignore[reportArgumentType]
         M, N = self.usr_size, self.movie_size
 
         # Build user CSR
-        self._temp_ratings.sort(key=lambda x: (x[0], x[1]))
+        self._temp_ratings.sort(key=lambda x: (x[0], x[1])) # type: ignore
         self.user_indptr = np.zeros(M + 1, dtype=np.int64)
-        self.user_movie_ids = np.zeros(len(self._temp_ratings), dtype=np.int32)
-        self.user_ratings = np.zeros(len(self._temp_ratings), dtype=np.float32)
+        self.user_movie_ids = np.zeros(len(self._temp_ratings), dtype=np.int32) # type: ignore
+        self.user_ratings = np.zeros(len(self._temp_ratings), dtype=np.float32) # type: ignore
 
         current_user = -1
-        for idx, (user_idx, movie_idx, rating) in enumerate(self._temp_ratings):
+        for idx, (user_idx, movie_idx, rating) in enumerate(self._temp_ratings): # type: ignore
             while current_user < user_idx:
                 current_user += 1
                 self.user_indptr[current_user] = idx
             self.user_movie_ids[idx] = movie_idx
             self.user_ratings[idx] = rating
-        self.user_indptr[M] = len(self._temp_ratings)
+        self.user_indptr[M] = len(self._temp_ratings) # type: ignore
 
         # Build movie CSR
-        self._temp_ratings.sort(key=lambda x: (x[1], x[0]))
+        self._temp_ratings.sort(key=lambda x: (x[1], x[0])) # type: ignore
         self.movie_indptr = np.zeros(N + 1, dtype=np.int64)
-        self.movie_user_ids = np.zeros(len(self._temp_ratings), dtype=np.int32)
-        self.movie_ratings = np.zeros(len(self._temp_ratings), dtype=np.float32)
+        self.movie_user_ids = np.zeros(len(self._temp_ratings), dtype=np.int32) # type: ignore
+        self.movie_ratings = np.zeros(len(self._temp_ratings), dtype=np.float32) # type: ignore
 
         current_movie = -1
-        for idx, (user_idx, movie_idx, rating) in enumerate(self._temp_ratings):
+        for idx, (user_idx, movie_idx, rating) in enumerate(self._temp_ratings): # type: ignore
             while current_movie < movie_idx:
                 current_movie += 1
                 self.movie_indptr[current_movie] = idx
             self.movie_user_ids[idx] = user_idx
             self.movie_ratings[idx] = rating
-        self.movie_indptr[N] = len(self._temp_ratings)
+        self.movie_indptr[N] = len(self._temp_ratings) # type: ignore
 
         self._temp_ratings = None
         self._finalized = True
