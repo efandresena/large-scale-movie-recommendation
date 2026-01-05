@@ -46,7 +46,8 @@ pip install -r requirements.txt
 python cli.py
 ```
 
-## For interface using Streamlit
+## For interface using Streamlit 
+You need to run cli.py and use download the pretrained model there before using this !
 ```bash
 streamlit run recommender_system.py
 ```
