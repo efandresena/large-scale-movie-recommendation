@@ -27,7 +27,7 @@ Streamlit interface: Web based interface and interactive easy to use
 ## Clone the repository
 ```bash
 git clone https://github.com/efandresena/large-scale-movie-recommendation.git
-cd movie-recommender
+cd large-scale-movie-recommendation
 ```
 
 ## Create and activate a virtual environment
