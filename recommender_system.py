@@ -19,16 +19,15 @@ from utils.helper_functions import (
 )
 
 
+@st.cache_resource
 def load_model():
-    # Try to reuse the CLI loader (which downloads with gdown if needed).
+    """Load model once and cache it"""
     try:
-        import cli as cli_module  # use CLI helper to download/load model
-
+        import cli as cli_module
         model_data = cli_module.load_pretrained_model()
         if model_data is not None:
             return model_data
     except Exception:
-        # Import or CLI loader failed (gdown may be missing); fall back to local load
         pass
 
     # Fallback: load directly from file
@@ -44,13 +43,35 @@ def load_model():
     }
     return model_data
 
+
+@st.cache_resource
+def load_train_dataset_for_filtering():
+    """Load only the movie rating counts for filtering - much lighter than full dataset"""
+    print("DEBUG: Loading movie rating counts from ratings.csv...")
+    
+    # Count ratings per movie
+    from collections import defaultdict
+    movie_rating_counts = defaultdict(int)
+    
+    with open(config.RATINGS_CSV_PATH, "r") as file:
+        next(file)  # Skip header
+        for line in file:
+            _, movieId, _, _ = line.strip().split(",")
+            movie_rating_counts[movieId] += 1
+    
+    print(f"DEBUG: Loaded rating counts for {len(movie_rating_counts)} movies")
+    return dict(movie_rating_counts)
+
+
+@st.cache_resource
 def load_data():
+    """Ensure data is downloaded once"""
     try:
         import cli as cli_module 
         cli_module.download_movies_data()
-        return 
     except Exception:
         pass
+
 
 @st.cache_data
 def load_movies_df(path: str = config.MOVIES_CSV_PATH):
@@ -89,12 +110,10 @@ def get_poster_for_movieid(movie_id: str, links_df: pd.DataFrame, tmdb_key: str 
     if row.empty:
         return None
     tmdb_id = str(row.iloc[0].get("tmdbId", ""))
-    imdb_id = str(row.iloc[0].get("imdbId", ""))
-    # Try TMDB first
+
     p = None
     if tmdb_key:
         p = tmdb_get_poster_url(tmdb_id, tmdb_key)
-    # If no poster found, return None and caller will use placeholder
     return p
 
 
@@ -123,13 +142,11 @@ def render_movie_card(
         # Get title and genres
         title, genres = get_movie_title_and_genres(movies_df, int(movie_id))
 
-        # Truncate title if too long (max ~40 chars for 2 lines)
+        # Truncate title if too long
         display_title = title if len(title) <= 40 else title[:37] + "..."
-
-        # Truncate genres if too long
         display_genres = genres if len(genres) <= 50 else genres[:47] + "..."
 
-        # Render poster (with or without actual image)
+        # Render poster
         if poster:
             st.markdown(
                 f'<div class="poster-container"><img src="{poster}" alt="{display_title}"></div>',
@@ -142,12 +159,10 @@ def render_movie_card(
                 unsafe_allow_html=True,
             )
 
-        # Title with fixed height
+        # Title and genres
         st.markdown(
             f'<div class="movie-title">{display_title}</div>', unsafe_allow_html=True
         )
-
-        # Genres with fixed height
         st.markdown(
             f'<div class="movie-genres">{display_genres}</div>', unsafe_allow_html=True
         )
@@ -168,6 +183,7 @@ def render_movie_card(
         if st.button("Add", key=f"add_{key_prefix}_{idx}", use_container_width=True):
             st.session_state["user_ratings"][int(idx)] = float(st.session_state[key])
             st.session_state["last_update"] = time.time()
+            st.session_state["need_update"] = True
             st.rerun()
 
 
@@ -200,12 +216,11 @@ def random_movies(dataset: CompactDatasetCSR, count: int = 10) -> List[int]:
 def genre_top_movies(
     dataset: CompactDatasetCSR, v: np.ndarray, genre_name: str, top_k: int = 5
 ) -> List[int]:
-    # find genre id
     genre2id = getattr(dataset, "genre2id", None)
     if genre2id is None or genre_name not in genre2id:
         return []
     g = genre2id[genre_name]
-    # collect movies belonging to genre
+    
     indptr = dataset.movie_genre_indptr
     ids = dataset.movie_genre_ids
     candidates = []
@@ -214,7 +229,6 @@ def genre_top_movies(
         end = indptr[n + 1]
         if start == end:
             continue
-        # check if g in movie's genres
         found = False
         for i in range(start, end):
             if ids[i] == g:
@@ -226,28 +240,103 @@ def genre_top_movies(
     if len(candidates) == 0:
         return []
 
-    # rank by norm of latent vector
     norms = [(n, np.linalg.norm(v[n])) for n in candidates]
     norms.sort(key=lambda x: x[1], reverse=True)
     return [n for n, _ in norms[:top_k]]
 
 
+def generate_recommendations(model_data, movie_rating_counts, movies_df, links_df, tmdb_key):
+    """Generate recommendations based on current user ratings"""
+    if len(st.session_state["user_ratings"]) == 0:
+        return []
+    
+    print(f"DEBUG: Generating recommendations for {len(st.session_state['user_ratings'])} rated movies")
+    print(f"DEBUG: User ratings: {st.session_state['user_ratings']}")
+    
+    rated_movies = [
+        (int(idx), float(r))
+        for idx, r in st.session_state["user_ratings"].items()
+    ]
+    
+    print(f"DEBUG: Creating DummyUser with k={model_data['k']}")
+    user = DummyUser(rated_movies, model_data["k"])
+    
+    # Extract model parameters
+    v = model_data['v']
+    item_biases = model_data['item_biases']
+    lamda = model_data['lamda']
+    gamma = model_data['gamma']
+    dataset = model_data['dataset']
+    
+    # Update user embedding
+    user.update(v, item_biases, lamda, gamma)
+    
+    # Get scores for all movies
+    scores = user.score_for_item()[0]
+    
+    # Get top candidates (3x what we need for filtering)
+    sorted_idx = np.argsort(scores)
+    best = sorted_idx[-(20 * 3):][::-1]
+    best.remo
+    
+    print(f"DEBUG: Got {len(best)} candidate indices")
+    
+    # Filter movies with fewer than 100 ratings
+    filtered_recommendations = []
+    for idx in best:
+        try:
+            movie_id = dataset.idx_to_movieId[int(idx)]
+            rating_count = movie_rating_counts.get(str(movie_id), 0)
+            
+            if rating_count >= 100:
+                filtered_recommendations.append(idx)
+                
+            if len(filtered_recommendations) >= 20:
+                break
+        except Exception as e:
+            print(f"ERROR processing idx {idx}: {e}")
+            continue
+    
+    print(f"DEBUG: After filtering, got {len(filtered_recommendations)} recommendations")
+    
+    # Convert to movie details
+    rec_titles = []
+    for idx in filtered_recommendations:
+        try:
+            movie_id = dataset.idx_to_movieId[int(idx)]
+            movie_id_int = int(movie_id)
+            
+            # Get title
+            row = movies_df[movies_df["movieId"] == movie_id_int]
+            if not row.empty:
+                title = row.iloc[0]["title"]
+            else:
+                title = str(movie_id)
+            
+            # Get poster
+            poster = get_poster_for_movieid(str(movie_id_int), links_df, tmdb_key)
+            
+            rec_titles.append((title, poster, movie_id_int, idx))
+        except Exception as e:
+            print(f"ERROR processing recommendation idx {idx}: {e}")
+            continue
+    
+    print(f"DEBUG: Returning {len(rec_titles)} recommendations")
+    return rec_titles
+
+
 def main():
     st.set_page_config(page_title="Movie Recommender", layout="wide")
 
-    # CSS for fixed-size movie cards with proper alignment - MUST come after set_page_config
     st.markdown(
         """
     <style>
-        /* Movie card container with fixed dimensions */
         .movie-card {
             height: 420px;
             display: flex;
             flex-direction: column;
             margin-bottom: 10px;
         }
-
-        /* Poster container with fixed size */
         .poster-container {
             width: 180px;
             height: 270px;
@@ -258,14 +347,11 @@ def main():
             margin-bottom: 8px;
             overflow: hidden;
         }
-
         .poster-container img {
             width: 180px;
             height: 270px;
             object-fit: cover;
         }
-
-        /* Title with fixed height and ellipsis */
         .movie-title {
             height: 48px;
             overflow: hidden;
@@ -278,8 +364,6 @@ def main():
             line-height: 1.4;
             margin-bottom: 4px;
         }
-
-        /* Genres with fixed height */
         .movie-genres {
             height: 32px;
             overflow: hidden;
@@ -291,19 +375,14 @@ def main():
             color: #666;
             margin-bottom: 8px;
         }
-
-        /* Ensure columns have equal height */
         div[data-testid="column"] {
             display: flex;
             flex-direction: column;
         }
-
-        /* Streamlit slider and button spacing */
         .stSlider {
             margin-top: 5px;
             margin-bottom: 5px;
         }
-
         .stButton button {
             width: 100%;
             margin-top: 5px;
@@ -315,28 +394,36 @@ def main():
 
     st.title("🎬 Movie Recommender System")
 
-    # Load assets
+    # Load assets ONCE with caching
     load_data()
     model_data = load_model()
     movies_df = load_movies_df()
     dataset = model_data["dataset"]
     v = model_data["v"]
     item_biases = model_data["item_biases"]
-
-    # Use the dataset saved inside the pretrained model
-    train_dataset = dataset
-
-    # Load links.csv for posters
+    
+    # Load movie rating counts for filtering (lightweight)
+    movie_rating_counts = load_train_dataset_for_filtering()
+    
     links_df = load_links_df()
     tmdb_key = getattr(config, "TMDB_API_KEY", None)
 
-    # Session state for user ratings and cached recommendations
+    # Initialize session state
     if "user_ratings" not in st.session_state:
         st.session_state["user_ratings"] = {}
         st.session_state["last_update"] = 0
         st.session_state["recommendations"] = []
+        st.session_state["need_update"] = False
 
-    # SIDEBAR - Search and Rate
+    # Auto-generate recommendations when ratings change
+    if st.session_state["need_update"] and len(st.session_state["user_ratings"]) > 0:
+        print("DEBUG: Auto-updating recommendations...")
+        recs = generate_recommendations(model_data, movie_rating_counts, movies_df, links_df, tmdb_key)
+        st.session_state["recommendations"] = recs
+        st.session_state["need_update"] = False
+        print(f"DEBUG: Stored {len(recs)} recommendations in session state")
+
+    # SIDEBAR
     st.sidebar.header("🔍 Search & Rate Movies")
     query = st.sidebar.text_input("Search movie title")
     if query:
@@ -346,7 +433,7 @@ def main():
                 "Select movie to rate", options=results["title"].tolist()
             )
             if selected:
-                row = results[results["title"] == selected].iloc[0]  # type: ignore
+                row = results[results["title"] == selected].iloc[0]
                 movie_id = int(row["movieId"])
                 try:
                     idx = movie_id_to_idx(dataset, [movie_id])[0]
@@ -354,20 +441,20 @@ def main():
                     if st.sidebar.button("Add rating", use_container_width=True):
                         st.session_state["user_ratings"][int(idx)] = float(rating)
                         st.session_state["last_update"] = time.time()
+                        st.session_state["need_update"] = True
                         st.sidebar.success(f"Added {row['title']} → {rating}⭐")
                         st.rerun()
                 except KeyError:
                     st.sidebar.error("Movie not in model dataset.")
 
-    # Show current user ratings
+    # Show current ratings
     st.sidebar.markdown("---")
     st.sidebar.subheader("Last Watched")
     if st.session_state["user_ratings"]:
         for idx, r in list(st.session_state["user_ratings"].items())[:10]:
-            try:  # type: ignore
+            try:
                 movie_id = dataset.idx_to_movieId[int(idx)]
                 title = idxs_to_titles(dataset, [int(idx)], movies_df)[0]
-                # Truncate long titles
                 display_title = title if len(title) <= 30 else title[:27] + "..."
                 st.sidebar.write(f"• {display_title}: {r}⭐")
             except Exception:
@@ -378,82 +465,38 @@ def main():
                 f"... and {len(st.session_state['user_ratings']) - 10} more"
             )
     else:
-        st.sidebar.info("No ratings yet. Rate some movies to get recommendations!")
+        st.sidebar.info("No ratings yet. Rate some movies!")
 
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        if st.button("Clear", use_container_width=True):
-            st.session_state["user_ratings"] = {}
-            st.session_state["recommendations"] = []
-            st.rerun()
-    with col2:
-        if st.button("Get Suggestion", use_container_width=True):
-            if len(st.session_state["user_ratings"]) > 0:
-                with st.spinner("Computing recommendations..."):
-                    rated_movies = [
-                        (int(idx), float(r))
-                        for idx, r in st.session_state["user_ratings"].items()
-                    ]
-                    user = DummyUser(rated_movies, model_data["k"])
-                    rec_ids = predict(
-                        user, model_data, train_dataset, num_recommendations=20
-                    )
-                    rec_titles = []
-                    for mid in rec_ids:
-                        try:
-                            mid_int = int(mid)
-                            row = movies_df[movies_df["movieId"] == mid_int]
-                            if not row.empty:
-                                title = row.iloc[0]["title"]
-                            else:
-                                title = str(mid)
-                            poster = get_poster_for_movieid(
-                                str(mid_int), links_df, tmdb_key
-                            )  # type: ignore
-                            rec_titles.append((title, poster, mid_int))
-                        except Exception:
-                            rec_titles.append((str(mid), None, mid))
-                    st.session_state["recommendations"] = rec_titles
-                    st.session_state["last_update"] = time.time()
-                st.sidebar.success("✓ Recommendations updated!")
-                st.rerun()
-            else:
-                st.sidebar.warning("Rate at least one movie first!")
+    if st.sidebar.button("Clear All Ratings", use_container_width=True):
+        st.session_state["user_ratings"] = {}
+        st.session_state["recommendations"] = []
+        st.session_state["need_update"] = False
+        st.rerun()
 
     # MAIN CONTENT
     # Row 1: Personalized recommendations
-    st.subheader("You Might Like these.")
+    st.subheader("You Might Like These")
+    
+    print(f"DEBUG: Rendering recommendations section. Count: {len(st.session_state['recommendations'])}")
+    
     if st.session_state["recommendations"]:
         recs = st.session_state["recommendations"][:10]
+        print(f"DEBUG: Displaying {len(recs)} recommendations")
         cols = st.columns(5)
-        for i, (title, poster, mid_int) in enumerate(recs):
+        for i, (title, poster, movie_id_int, idx) in enumerate(recs):
             col = cols[i % 5]
-            try:
-                idx = movie_id_to_idx(dataset, [mid_int])[0]
-                movie_id = str(mid_int)
-                render_movie_card(
-                    col, idx, movie_id, movies_df, links_df, tmdb_key, dataset, f"rec"
-                )
-            except Exception:
-                # Fallback if mapping fails
-                with col:
-                    placeholder = poster_placeholder()
-                    st.markdown(
-                        f'<div class="poster-container"><img src="{placeholder}"></div>',
-                        unsafe_allow_html=True,
-                    )
-                    st.markdown(
-                        f'<div class="movie-title">{title}</div>',
-                        unsafe_allow_html=True,
-                    )
+            movie_id = str(movie_id_int)
+            print(f"DEBUG: Rendering rec {i}: {title} (idx={idx})")
+            render_movie_card(
+                col, idx, movie_id, movies_df, links_df, tmdb_key, dataset, f"rec_{i}"
+            )
     else:
-        st.info(
-            " Rate some movies and click 'Get Suggestion' in the sidebar to see personalized recommendations!"
-        )
+        print("DEBUG: No recommendations to display")
+        st.info("⭐ Rate some movies to see personalized recommendations!")
 
     st.markdown("---")
 
-    # Row 2: Top movies by bias
+    # Row 2: Top movies
     st.subheader("⭐ Top Rated Movies")
     top_idxs = top_by_bias(item_biases, top_n=10)
     cols = st.columns(5)
@@ -461,7 +504,7 @@ def main():
         col = cols[i % 5]
         movie_id = dataset.idx_to_movieId[int(idx)]
         render_movie_card(
-            col, idx, movie_id, movies_df, links_df, tmdb_key, dataset, "top"
+            col, idx, movie_id, movies_df, links_df, tmdb_key, dataset, f"top_{i}"
         )
 
     st.markdown("---")
@@ -474,7 +517,7 @@ def main():
         col = cols[i % 5]
         movie_id = dataset.idx_to_movieId[int(idx)]
         render_movie_card(
-            col, idx, movie_id, movies_df, links_df, tmdb_key, dataset, "rand"
+            col, idx, movie_id, movies_df, links_df, tmdb_key, dataset, f"rand_{i}"
         )
 
     st.markdown("---")
@@ -498,7 +541,7 @@ def main():
                         links_df,
                         tmdb_key,
                         dataset,
-                        f"genre_{genre}",
+                        f"genre_{genre}_{i}",
                     )
             else:
                 st.info(f"No movies found for {genre}")
