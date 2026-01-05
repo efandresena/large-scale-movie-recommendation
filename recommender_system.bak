@@ -318,18 +318,10 @@ def main():
         """
     <style>
         .movie-card {
+            height: 420px;
             display: flex;
             flex-direction: column;
-            margin-bottom: 15px;
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            padding: 8px;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .movie-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            margin-bottom: 10px;
         }
         .poster-container {
             width: 180px;
@@ -337,8 +329,7 @@ def main():
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(145deg, #eceff1, #f7f9fa);
-            border-radius: 8px;
+            background-color: #f0f0f0;
             margin-bottom: 8px;
             overflow: hidden;
         }
@@ -346,19 +337,17 @@ def main():
             width: 180px;
             height: 270px;
             object-fit: cover;
-            border-radius: 8px;
         }
         .movie-title {
-            font-weight: 700;
-            font-size: 14px;
-            line-height: 1.4;
-            color: var(--text-color);
             height: 48px;
             overflow: hidden;
             text-overflow: ellipsis;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
+            font-weight: bold;
+            font-size: 14px;
+            line-height: 1.4;
             margin-bottom: 4px;
         }
         .movie-genres {
@@ -369,66 +358,28 @@ def main():
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             font-size: 11px;
-            color: var(--text-color-secondary); /* adjusts automatically */
+            color: #666;
             margin-bottom: 8px;
         }
         div[data-testid="column"] {
             display: flex;
             flex-direction: column;
-            align-items: center;
         }
-        .stSlider .css-1kyxreq {
-            color: #ff9800; /* slider color */
+        .stSlider {
+            margin-top: 5px;
+            margin-bottom: 5px;
         }
         .stButton button {
             width: 100%;
-            background-color: #1976d2;
-            color: white;
-            font-weight: 600;
-            border-radius: 8px;
-            transition: background-color 0.2s;
-        }
-        .stButton button:hover {
-            background-color: #115293;
+            margin-top: 5px;
         }
     </style>
-
     """,
         unsafe_allow_html=True,
     )
 
-    st.markdown(
-    """
-    <style>
-    /* Header Title */
-    .app-title {
-        font-size: 36px;
-        font-weight: 800;
-        color: #ff6f61;  /* bright accent color */
-        text-align: center;
-        margin-bottom: 0;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-    }
-
-    /* Subtitle / Your Name */
-    .app-subtitle {
-        font-size: 16px;
-        font-weight: 500;
-        color: #555;
-        text-align: center;
-        margin-top: 0;
-        margin-bottom: 20px;
-        font-style: italic;
-    }
-    </style>
-
-    <h1 class="app-title">🎬 Movie Recommender System</h1>
-    <div class="app-subtitle">by Mirindra Randriamanantena (AIMS 2025-2026)</div>
-    """,
-    unsafe_allow_html=True
-)
-
+    st.title("🎬 Movie Recommender System")
+    st.markdown("by **[Mirindra Randriamanantena](AIMS 2025-2026)**")
     # Load assets ONCE with caching
     load_data()
     model_data = load_model()
@@ -510,7 +461,7 @@ def main():
 
     # MAIN CONTENT
     # Row 1: Personalized recommendations
-    st.subheader("⭐⭐ Suggestion For You")
+    st.subheader("You Might Like These")
     
     print(f"DEBUG: Rendering recommendations section. Count: {len(st.session_state['recommendations'])}")
     

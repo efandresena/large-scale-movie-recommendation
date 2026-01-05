@@ -54,5 +54,15 @@ streamlit run recommender_system.py
 
 ## Warning 
 For cli or interface the application may take some time to run due to the size of the data to be downloaded and it depends on the user internet speed.
+A saved model : 113M
+MovielensDataset : 200M (25M)
 
 During training some movie didn't have ratings which is the cold start problem so the model can not infer for it yet. This is the main problem of collaborative filtering known as the Cold start problem.
+
+## Screenshot example
+
+1. **Suggestion for user watched Zootopia and Lord of the Rings**  
+![Suggestion Example](images/suggestion.png)
+
+2. **Polarizing movie**  
+![Polarizing Movie](images/polarizing.png)
