@@ -16,6 +16,7 @@ MODEL_DIR = "models"
 MODEL_PATH = f"{MODEL_DIR}/final_model.npz"
 MOVIES_CSV_PATH = f"{DATA_DIR}/movies.csv"
 RATINGS_CSV_PATH = f"{DATA_DIR}/ratings.csv"
+MOVIE_RATING_COUNTS_PATH = f"{DATA_DIR}/movie_rating_counts.json"
 
 # Model hyperparameters (default for training)
 DEFAULT_K = 15

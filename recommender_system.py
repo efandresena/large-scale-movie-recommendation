@@ -1,6 +1,7 @@
 import os
 import random
 import time
+import json
 from typing import List
 
 import numpy as np
@@ -46,22 +47,8 @@ def load_model():
 
 @st.cache_resource
 def load_train_dataset_for_filtering():
-    """Load only the movie rating counts for filtering - much lighter than full dataset"""
-    print("DEBUG: Loading movie rating counts from ratings.csv...")
-    
-    # Count ratings per movie
-    from collections import defaultdict
-    movie_rating_counts = defaultdict(int)
-    
-    with open(config.RATINGS_CSV_PATH, "r") as file:
-        next(file)  # Skip header
-        for line in file:
-            _, movieId, _, _ = line.strip().split(",")
-            movie_rating_counts[movieId] += 1
-    
-    print(f"DEBUG: Loaded rating counts for {len(movie_rating_counts)} movies")
-    return dict(movie_rating_counts)
-
+    with open(config.MOVIE_RATING_COUNTS_PATH) as f:
+        return json.load(f)
 
 @st.cache_resource
 def load_data():
@@ -277,7 +264,6 @@ def generate_recommendations(model_data, movie_rating_counts, movies_df, links_d
     # Get top candidates (3x what we need for filtering)
     sorted_idx = np.argsort(scores)
     best = sorted_idx[-(20 * 3):][::-1]
-    best.remo
     
     print(f"DEBUG: Got {len(best)} candidate indices")
     
