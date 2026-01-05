@@ -48,7 +48,7 @@ def load_data():
     try:
         import cli as cli_module 
         cli_module.download_movies_data()
-        return
+        return 
     except Exception:
         pass
 

@@ -1,5 +1,3 @@
 data/ml-25m
-data/links.csv
-data/movies.csv
 data/ratings.csv
 models/final_model.npz
