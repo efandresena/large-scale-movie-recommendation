@@ -13,7 +13,7 @@ from utils.data_structure import CompactDatasetCSR
 from utils.dummy_user import DummyUser, predict
 from utils.helper_functions import (
     get_movie_title_and_genres,
-    index_to_movie_id,
+    index_to_movie_id,  # noqa: F401
     movie_id_to_idx,
     search_movies,
 )
@@ -44,6 +44,13 @@ def load_model():
     }
     return model_data
 
+def load_data():
+    try:
+        import cli as cli_module 
+        cli_module.download_movies_data()
+        return
+    except Exception:
+        pass
 
 @st.cache_data
 def load_movies_df(path: str = config.MOVIES_CSV_PATH):
@@ -309,6 +316,7 @@ def main():
     st.title("🎬 Movie Recommender System")
 
     # Load assets
+    load_data()
     model_data = load_model()
     movies_df = load_movies_df()
     dataset = model_data["dataset"]
@@ -353,7 +361,7 @@ def main():
 
     # Show current user ratings
     st.sidebar.markdown("---")
-    st.sidebar.subheader("📝 Your Ratings")
+    st.sidebar.subheader("Last Watched")
     if st.session_state["user_ratings"]:
         for idx, r in list(st.session_state["user_ratings"].items())[:10]:
             try:  # type: ignore
@@ -374,12 +382,12 @@ def main():
 
     col1, col2 = st.sidebar.columns(2)
     with col1:
-        if st.button("🗑️ Clear", use_container_width=True):
+        if st.button("Clear", use_container_width=True):
             st.session_state["user_ratings"] = {}
             st.session_state["recommendations"] = []
             st.rerun()
     with col2:
-        if st.button("🎯 Get Recs", use_container_width=True):
+        if st.button("Get Suggestion", use_container_width=True):
             if len(st.session_state["user_ratings"]) > 0:
                 with st.spinner("Computing recommendations..."):
                     rated_movies = [
@@ -414,7 +422,7 @@ def main():
 
     # MAIN CONTENT
     # Row 1: Personalized recommendations
-    st.subheader("🎯 Your Personalized Recommendations")
+    st.subheader("You Might Like these.")
     if st.session_state["recommendations"]:
         recs = st.session_state["recommendations"][:10]
         cols = st.columns(5)
@@ -440,7 +448,7 @@ def main():
                     )
     else:
         st.info(
-            "👆 Rate some movies and click 'Get Recs' in the sidebar to see personalized recommendations!"
+            " Rate some movies and click 'Get Suggestion' in the sidebar to see personalized recommendations!"
         )
 
     st.markdown("---")
