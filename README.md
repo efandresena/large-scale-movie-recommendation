@@ -23,7 +23,7 @@ Fast & Efficient: Optimized with Numba for high performance
 Streamlit interface: Web based interface and interactive easy to use
 
 ## **Quick Start**
-The model is available online on streamlit at:
+The model or website recommendation is available online on streamlit at:
 
 https://large-scale-movie-recommendation-eptiqpkh7tcuajs288uoxe.streamlit.app/
 
