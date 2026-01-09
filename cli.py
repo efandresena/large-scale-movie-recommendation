@@ -95,6 +95,7 @@ def download_movies_data():
 
 def load_pretrained_model():
     """Load pre-trained model from file"""
+    ensure_directories()
     if not os.path.exists(config.MODEL_PATH):
         if not download_model():
             return None
